@@ -1047,8 +1047,9 @@ def test_BGP_GR_TC_4_p0(request):
             tc_name, result
         )
 
+        #R-bit must not be set if the helper node R2 restarts
         result = verify_r_bit(tgen, topo, addr_type, input_dict, dut="r1", peer="r2")
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
 
@@ -1209,7 +1210,11 @@ def test_BGP_GR_TC_5_1_2_p1(request):
     logger.info("[Phase 2] : Restart BGPd on router R2.  ")
     kill_router_daemons(tgen, "r2", ["bgpd"])
 
+    #Start BGP with -K option to start BGP gracefully
+    tgen.net["r2"].daemons_options["bgpd"] = "-K "
     start_router_daemons(tgen, "r2", ["bgpd"])
+    #Unset -K after starting BGP
+    tgen.net["r2"].daemons_options["bgpd"] = ""
 
     logger.info("[Phase 4] : R2 is UP now, so time to collect GR stats  ")
 

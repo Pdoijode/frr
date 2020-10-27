@@ -725,7 +725,11 @@ def test_BGP_GR_chaos_37_p1(request):
     logger.info("[Step 4] : Start BGPd daemon on R1..")
 
     # Start BGPd daemon on R1
+    #Set -K option to start BGP gracefully
+    tgen.net["r1"].daemons_options["bgpd"] = "-K "
     start_router_daemons(tgen, "r1", ["bgpd"])
+    #Unset -K after starting BGP
+    tgen.net["r1"].daemons_options["bgpd"] = ""
 
     logger.info("[Step 5] : Kill BGPd daemon on R3..")
 
@@ -742,11 +746,16 @@ def test_BGP_GR_chaos_37_p1(request):
 
     # Start BGPd daemon on R3
     start_router_daemons(tgen, "r3", ["bgpd"])
-
+    
     for addr_type in ADDR_TYPES:
         # Verify r_bit
-        result = verify_r_bit(tgen, topo, addr_type, input_dict, dut="r1", peer="r3")
+        result = verify_r_bit(tgen, topo, addr_type, input_dict, dut="r3", peer="r1")
         assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        result = verify_r_bit(tgen, topo, addr_type, input_dict, dut="r1", peer="r3")
+        assert result is not True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
 

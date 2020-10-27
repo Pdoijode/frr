@@ -1577,7 +1577,12 @@ def test_BGP_GR_TC_9_p1(request):
         )
 
     logger.info("[Phase 5] : R2 is about to come up now  ")
+    #Set -K option to start BGP gracefully
+    tgen.net["r2"].daemons_options["bgpd"] = "-K "
+
     start_router_daemons(tgen, "r2", ["bgpd"])
+    #Unset -K after starting BGP
+    tgen.net["r2"].daemons_options["bgpd"] = ""
 
     logger.info("[Phase 4] : R2 is UP now, so time to collect GR stats  ")
 

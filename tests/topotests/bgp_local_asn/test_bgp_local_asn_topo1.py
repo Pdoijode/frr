@@ -1150,7 +1150,12 @@ def test_verify_bgp_local_as_GR_EBGP_p0(request):
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
     logger.info("[Phase 5] : R3 is about to come up now  ")
+    
+    #Set -K option to start BGP gracefully
+    tgen.net["r3"].daemons_options["bgpd"] = "-K "
     start_router_daemons(tgen, "r3", ["bgpd"])
+    #Unset -K after starting BGP
+    tgen.net["r3"].daemons_options["bgpd"] = ""
 
     logger.info("[Phase 5] : R3 is UP Now !  ")
 

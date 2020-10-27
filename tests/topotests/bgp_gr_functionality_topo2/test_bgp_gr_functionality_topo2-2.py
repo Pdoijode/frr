@@ -548,7 +548,12 @@ def test_BGP_GR_chaos_28_p1(request):
     logger.info("[Step 3] : Start BGPd daemon on R1..")
 
     # Start BGPd daemon on R1
+    #Set -K option to start BGP gracefully
+    tgen.net["r1"].daemons_options["bgpd"] = "-K "
     start_router_daemons(tgen, "r1", ["bgpd"])
+    #Unset -K after starting BGP
+    tgen.net["r1"].daemons_options["bgpd"] = ""
+
 
     logger.info("[Step 4] : Start BGPd daemon on R3..")
 

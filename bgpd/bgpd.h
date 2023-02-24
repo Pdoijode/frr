@@ -120,6 +120,7 @@ struct bgp_master {
 
 	/* BGP start time.  */
 	time_t start_time;
+	time_t gr_completion_time;
 
 	/* Various BGP global configuration.  */
 	uint8_t options;
@@ -179,7 +180,6 @@ struct bgp_master {
 	uint32_t rib_stale_time;
 
 	time_t startup_time;
-	time_t gr_completion_time;
 
 	bool terminating;	/* global flag that sigint terminate seen */
 

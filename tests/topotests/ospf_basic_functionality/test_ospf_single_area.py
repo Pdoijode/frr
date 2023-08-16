@@ -167,6 +167,8 @@ def test_ospf_p2p_tc3_p0(request):
             }
         }
     }
+    import pdb
+    pdb.set_trace()
     result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
@@ -409,6 +411,8 @@ def test_ospf_hello_tc10_p0(request):
             "links": {"r0": {"ospf": {"timerMsecs": 11 * 1000, "timerDeadSecs": 12}}}
         }
     }
+    import pdb
+    pdb.set_trace()
     result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 

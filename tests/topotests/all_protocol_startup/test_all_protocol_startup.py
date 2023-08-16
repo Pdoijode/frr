@@ -771,6 +771,8 @@ def test_ospfv2_interfaces():
                 .cmd('vtysh -c "show ip ospf interface" 2> /dev/null')
                 .rstrip()
             )
+            import pdb
+            pdb.set_trace()
             # Mask out Bandwidth portion. They may change..
             actual = re.sub(r"BW [0-9]+ Mbit", "BW XX Mbit", actual)
             actual = re.sub(r"ifindex [0-9]+", "ifindex X", actual)

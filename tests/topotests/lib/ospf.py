@@ -1290,7 +1290,8 @@ def verify_ospf_interface(
         'r0': {
             'links':{
                 's1': {
-                    'ospf':{
+                  '10.1.1.1: {
+                     'ospf':{
                         'priority':98,
                         'timerDeadSecs': 4,
                         'area': '0.0.0.3',
@@ -1298,7 +1299,8 @@ def verify_ospf_interface(
                         'mcastMemberOspfAllRouters': True,
                         'ospfEnabled': True,
 
-                    }
+                     }
+                   }
                 }
             }
         }
@@ -1332,29 +1334,44 @@ def verify_ospf_interface(
 
         # To find neighbor ip type
         ospf_intf_data = input_dict[router]["links"]
-        for ospf_intf, intf_data in ospf_intf_data.items():
+        print("\nPOOJA JSON tree:\n", show_ospf_json["interfaces"])
+        for ospf_intf, ospf_data in ospf_intf_data.items():
+            print("\nPOOJA ospf_data:\n", ospf_data)
             intf = topo["routers"][router]["links"][ospf_intf]["interface"]
             if intf in show_ospf_json["interfaces"]:
-                for intf_attribute in intf_data["ospf"]:
+                for ip_addr, intf_data in ospf_data.items():
+                  for intf_attribute in intf_data["ospf"]:
+                    if (intf_attribute == "ospfEnabled") or \
+                       (intf_attribute == "ifUp") or \
+                       (intf_attribute == "ifIndex") or \
+                       (intf_attribute == "mtuBytes")or \
+                       (intf_attribute == "bandwidthMbit") or \
+                       (intf_attribute == "ifFlags"):
+                        json_obj = show_ospf_json["interfaces"][intf]
+                    else:
+                        print("POOJA JSON tree intf subtree:\n", show_ospf_json["interfaces"][intf]["interfaceIp"])
+                        json_obj = show_ospf_json["interfaces"][intf]["interfaceIp"][ip_addr]
                     if (
                         intf_data["ospf"][intf_attribute]
-                        == show_ospf_json["interfaces"][intf][intf_attribute]
+                        == json_obj[intf_attribute]
                     ):
                         logger.info(
-                            "[DUT: %s] OSPF interface %s: %s is %s",
+                            "[DUT: %s] OSPF interface %s ipv4 address %s: %s is %s",
                             router,
                             intf,
+                            ip_addr,
                             intf_attribute,
                             intf_data["ospf"][intf_attribute],
                         )
                     else:
-                        errormsg = "[DUT: {}] OSPF interface {}: {} is {}, \
+                        errormsg = "[DUT: {}] OSPF interface {} ip {}: {} is {}, \
                         Expected is {}".format(
                             router,
                             intf,
+                            ip_addr,
                             intf_attribute,
                             intf_data["ospf"][intf_attribute],
-                            show_ospf_json["interfaces"][intf][intf_attribute],
+                            json_obj[intf_attribute],
                         )
                         return errormsg
         result = True

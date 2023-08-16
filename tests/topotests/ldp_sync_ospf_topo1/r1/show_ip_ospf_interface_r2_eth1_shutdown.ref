@@ -1,10 +1,18 @@
 {
   "interfaces":{
     "r1-eth1":{
-      "cost":65535
+      "interfaceIp":{
+        "10.0.1.1":{
+          "cost":65535
+        }
+      }
     },
     "r1-eth2":{
-      "cost":10
+      "interfaceIp":{
+        "10.0.2.1":{
+          "cost":10
+        }
+      }     
     }
   }
 }

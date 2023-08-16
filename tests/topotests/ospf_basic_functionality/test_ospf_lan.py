@@ -491,6 +491,7 @@ def test_ospf_lan_tc2_p0(request):
         "r0": {
             "links": {
                 "s1": {
+                  topo["routers"]["r0"]["links"]["s1"]["ipv4"].split("/")[0]: {
                     "ospf": {
                         "priority": 98,
                         "timerDeadSecs": 10,
@@ -499,10 +500,13 @@ def test_ospf_lan_tc2_p0(request):
                         "mcastMemberOspfAllRouters": True,
                         "ospfEnabled": True,
                     }
+                  }
                 }
             }
         }
     }
+    import pdb
+    pdb.set_trace()
     result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
@@ -537,6 +541,9 @@ def test_ospf_lan_tc2_p0(request):
         "r0": {
             "links": {
                 "s1": {
+                  topo_modify_change_ip["routers"]["r0"]["links"][
+                            "s1"
+                            ]["ipv4"].split("/")[0]: {
                     "ospf": {
                         "ipAddress": topo_modify_change_ip["routers"]["r0"]["links"][
                             "s1"
@@ -547,6 +554,7 @@ def test_ospf_lan_tc2_p0(request):
                             ].split("/")[1]
                         ),
                     }
+                  }
                 }
             }
         }
@@ -588,6 +596,9 @@ def test_ospf_lan_tc2_p0(request):
         "r0": {
             "links": {
                 "s1": {
+                  topo_modify_change_ip["routers"]["r0"]["links"][
+                            "s1"
+                        ]["ipv4"].split("/")[0]: {
                     "ospf": {
                         "ipAddress": topo_modify_change_ip["routers"]["r0"]["links"][
                             "s1"
@@ -598,6 +609,7 @@ def test_ospf_lan_tc2_p0(request):
                             ].split("/")[1]
                         ),
                     }
+                  }
                 }
             }
         }
@@ -637,8 +649,10 @@ def test_ospf_lan_tc2_p0(request):
     step("Verify that interface is enabled in ospf.")
     dut = "r0"
     input_dict = {
-        "r0": {"links": {"s1": {"ospf": {"area": "0.0.0.2", "ospfEnabled": True}}}}
+            "r0": {"links": {"s1": {topo["routers"]["r0"]["links"]["s1"]["ipv4"].split("/")[0]:{"ospf": {"area": "0.0.0.2", "ospfEnabled": True}}}}}
     }
+    import pdb
+    pdb.set_trace()
     result = verify_ospf_interface(tgen, topo, dut=dut, input_dict=input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 

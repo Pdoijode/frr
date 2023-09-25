@@ -4460,6 +4460,9 @@ int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable)
 
 		if (BGP_DEBUG(zebra, ZEBRA) || BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
 			zlog_debug("%s: %s send capabilty success", __func__, bgp->name_pretty);
+
+		frrtrace(3, frr_bgp, gr_send_capabilities, bgp->name_pretty, bgp->vrf_id, disable);
+
 		ret = BGP_GR_SUCCESS;
 	}
 	return ret;
@@ -4505,6 +4508,10 @@ int bgp_zebra_update(struct bgp *bgp, afi_t afi, safi_t safi,
 				   bgp->name_pretty);
 		return BGP_GR_FAILURE;
 	}
+
+	frrtrace(4, frr_bgp, gr_zebra_update, bgp->name_pretty, afi, safi,
+		 zserv_gr_client_cap_string(type));
+
 	return BGP_GR_SUCCESS;
 }
 

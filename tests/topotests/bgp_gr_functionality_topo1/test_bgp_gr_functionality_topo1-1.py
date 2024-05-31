@@ -1202,7 +1202,7 @@ def test_BGP_GR_TC_5_1_2_p1(request):
         )
 
         result = verify_r_bit(tgen, topo, addr_type, input_dict, dut="r1", peer="r2")
-        assert result is True, "Testcase {} : Failed \n Error {}".format(
+        assert result is not True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
 

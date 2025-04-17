@@ -430,6 +430,25 @@ def start_router_daemons(tgen, router, daemons):
     return res
 
 
+def start_router_daemons_gr(tgen, router, daemons):
+    """
+    Set -K option in daemons file before starting
+    the daemon so that it can start in GR restarter mode.
+    Currently supported for bgpd and zebra only.
+    Remove -K option from daemons file once started
+    """
+    # Adds extra parameters to daemons file for graceful restart
+    for daemon in daemons:
+        tgen.net[router].daemons_options[daemon] = "-K 60"
+
+    # Start daemon
+    start_router_daemons(tgen, router, daemons)
+
+    # Remove graceful restart option
+    for daemon in daemons:
+        tgen.net[router].daemons_options[daemon] = ""
+
+
 def check_router_status(tgen):
     """
     Check if all daemons are running for all routers in topology
@@ -3262,7 +3281,6 @@ def verify_rib(
                 static_routes = input_dict[routerInput]["static_routes"]
 
                 for idx, static_route in enumerate(static_routes):
-
                     if "vrf" in static_route and static_route["vrf"] is not None:
                         logger.info(
                             "[DUT: %s]: Verifying routes for VRF: %s",
@@ -3458,9 +3476,12 @@ def verify_rib(
 
                                 # If no route entry passed verification, report error
                                 if not rib_verification_passed:
-                                    errormsg = "No route entry passed next hop verification for " "route {} in RIB of router {}\n".format(
-                                        st_rt,
-                                        dut,
+                                    errormsg = (
+                                        "No route entry passed next hop verification for "
+                                        "route {} in RIB of router {}\n".format(
+                                            st_rt,
+                                            dut,
+                                        )
                                     )
                                     verification_errors.append(errormsg)
                                     continue

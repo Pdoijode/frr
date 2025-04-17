@@ -108,11 +108,13 @@ from lib.common_config import (
     start_topology,
     kill_router_daemons,
     start_router_daemons,
+    start_router_daemons_gr,
     verify_rib,
     check_address_types,
     write_test_footer,
     check_router_status,
     get_frr_ipv6_linklocal,
+    run_frr_cmd,
     required_linux_kernel_version,
 )
 
@@ -656,22 +658,14 @@ def test_BGP_GR_chaos_37_p1(request):
                     "ipv4": {
                         "unicast": {
                             "neighbor": {
-                                "r1": {
-                                    "dest_link": {
-                                        "r3": {"graceful-restart-helper": True}
-                                    }
-                                }
+                                "r1": {"dest_link": {"r3": {"graceful-restart": True}}}
                             }
                         }
                     },
                     "ipv6": {
                         "unicast": {
                             "neighbor": {
-                                "r1": {
-                                    "dest_link": {
-                                        "r3": {"graceful-restart-helper": True}
-                                    }
-                                }
+                                "r1": {"dest_link": {"r3": {"graceful-restart": True}}}
                             }
                         }
                     },
@@ -715,17 +709,15 @@ def test_BGP_GR_chaos_37_p1(request):
         )
 
     logger.info("[Step 3] : Kill BGPd daemon on R1..")
-
     # Kill BGPd daemon on R1
     kill_router_daemons(tgen, "r1", ["bgpd"])
 
     logger.info("[Step 4] : Start BGPd daemon on R1..")
 
     # Start BGPd daemon on R1
-    start_router_daemons(tgen, "r1", ["bgpd"])
+    start_router_daemons_gr(tgen, "r1", ["bgpd"])
 
     logger.info("[Step 5] : Kill BGPd daemon on R3..")
-
     # Kill BGPd daemon on R3
     kill_router_daemons(tgen, "r3", ["bgpd"])
 
@@ -738,7 +730,7 @@ def test_BGP_GR_chaos_37_p1(request):
     logger.info("[Step 6] : Start BGPd daemon on R3..")
 
     # Start BGPd daemon on R3
-    start_router_daemons(tgen, "r3", ["bgpd"])
+    start_router_daemons_gr(tgen, "r3", ["bgpd"])
 
     for addr_type in ADDR_TYPES:
         # Verify r_bit
@@ -910,7 +902,10 @@ def test_BGP_GR_chaos_30_p1(request):
     logger.info("[Step 4] : Start BGPd daemon on R1..")
 
     # Start BGPd daemon on R1
-    start_router_daemons(tgen, "r1", ["bgpd"])
+    start_router_daemons_gr(tgen, "r1", ["bgpd"])
+
+    # Wait for select-deferral-timer to expire/EORs to be received
+    sleep(360)
 
     for addr_type in ADDR_TYPES:
         # Verifying BGP RIB routes before shutting down BGPd daemon

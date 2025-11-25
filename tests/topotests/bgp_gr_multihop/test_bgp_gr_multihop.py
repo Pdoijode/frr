@@ -23,9 +23,13 @@ import functools
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.common_config import step, kill_router_daemons, start_router_daemons
+from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
 
+# Import topogen and required test modules
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, "../"))
 
 def build_topo(tgen):
     for routern in range(1, 4):
@@ -39,25 +43,27 @@ def build_topo(tgen):
     s2.add_link(tgen.gears["r2"])  # r2-eth1
     s2.add_link(tgen.gears["r3"])  # r3-eth0
 
-
 def setup_module(mod):
+    """Set up the pytest environment."""
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    CWD = os.path.dirname(os.path.realpath(__file__))
+    # Enable required daemons for all routers
     router_list = tgen.routers()
-
-    # Load configs
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
+        logger.info(f"Enabling daemons for router {rname}")
+        # Enable mgmtd, zebra, and bgpd
+        router.load_config(router.RD_MGMTD, "")
+        router.load_config(router.RD_ZEBRA, "")
+        router.load_config(router.RD_BGP, "")
 
+    # Load FRR configuration for each router
+    for rname, router in router_list.items():
+        logger.info(f"Loading config to router {rname}")
+        router.load_frr_config(os.path.join(CWD, f"{rname}/frr.conf"))
+
+    # Initialize all routers
     tgen.start_router()
-
 
 def teardown_module(mod):
     tgen = get_topogen()
@@ -87,8 +93,8 @@ def test_bgp_gr_multihop():
         return None
 
     def _r3_has_stale_route():
-        # Verify that 1.1.1.2/32, 1.1.1.3/32, and 1.1.1.4/32 are marked as stale
-        stale_routes = ["1.1.1.2/32", "1.1.1.3/32", "1.1.1.4/32"]
+        # Verify that 10.1.1.2/32, 10.1.1.3/32, and 10.1.1.4/32 are marked as stale
+        stale_routes = ["10.1.1.2/32", "10.1.1.3/32", "10.1.1.4/32"]
         for route in stale_routes:
             output = json.loads(r3.vtysh_cmd(f"show bgp ipv4 unicast {route} json"))
             expected = {"paths": [{"stale": True}]}
@@ -99,8 +105,8 @@ def test_bgp_gr_multihop():
 
     def _r3_kernel_kept_route():
         # Expect stale routes from r1 are retained in kernel
-        # These routes are 1.1.1.2/32, 1.1.1.3/32, and 1.1.1.4/32
-        stale_routes = ["1.1.1.2", "1.1.1.3", "1.1.1.4"]
+        # These routes are 10.1.1.2/32, 10.1.1.3/32, and 10.1.1.4/32
+        stale_routes = ["10.1.1.2", "10.1.1.3", "10.1.1.4"]
         expected_routes = [
             {"dst": route, "gateway": "10.0.2.1", "metric": 20} for route in stale_routes
         ]
@@ -143,14 +149,14 @@ def test_bgp_gr_multihop():
         n2 = json.loads(r1.vtysh_cmd("show bgp ipv4 neighbors 10.0.1.1 json")).get(
             "10.0.1.1", {}
         )
-        n3 = json.loads(r1.vtysh_cmd("show bgp ipv4 neighbors 3.3.3.3 json")).get(
-            "3.3.3.3", {}
+        n3 = json.loads(r1.vtysh_cmd("show bgp ipv4 neighbors 10.3.3.3 json")).get(
+            "10.3.3.3", {}
         )
         ok = n2.get("bgpState") == "Established" and n3.get("bgpState") == "Established"
         return None if ok else {"r2": n2.get("bgpState"), "r3": n3.get("bgpState")}
 
     def _r1_verify_mh_peer_is_present():
-        output = r1.vtysh_cmd("show bgp ipv4 neighbors 3.3.3.3 json")
+        output = r1.vtysh_cmd("show bgp ipv4 neighbors 10.3.3.3 json")
         if not "Multihop GR peer exists" in output:
             return None
         else:
@@ -158,7 +164,7 @@ def test_bgp_gr_multihop():
 
     def _r3_has_r1_routes_in_bgp():
         # Before killing r1 bgpd, ensure r3 has r1's prefixes in BGP
-        prefixes = ["1.1.1.2/32", "1.1.1.3/32", "1.1.1.4/32"]
+        prefixes = ["10.1.1.2/32", "10.1.1.3/32", "10.1.1.4/32"]
         for pfx in prefixes:
             output = json.loads(r3.vtysh_cmd(f"show bgp ipv4 unicast {pfx} json"))
             paths = output.get("paths", [])
@@ -207,12 +213,32 @@ def test_bgp_gr_multihop():
     step("Verify r3 keeps FIB route during GR")
     assert _r3_kernel_kept_route() is None, "Kernel did not retain BGP route on r3"
 
-    # Bring r1 bgpd back, verify recovery
-    step("Start bgpd on r1 and verify recovery")
-    start_router_daemons(tgen, "r1", ["bgpd"])  # align with BGP_GR_TC_50_p1
+
+    # Get config file path and router object
+    source_config = os.path.join(CWD, "r1/frr.conf")
+    router_r1 = tgen.gears["r1"]
+    # Restart BGP daemon and load configuration using load_config
+    logger.info("Starting BGP daemon on r1...")
+    try:
+        start_router_daemons(tgen, "r1", ["bgpd"])
+        logger.info("BGP daemon start command completed")
+
+        # Apply BGP configuration using vtysh -f
+        logger.info(f"Applying BGP config from: {source_config}")
+        config_result = router_r1.cmd(f"vtysh -f {source_config}")
+        logger.info("BGP configuration applied successfully")
+
+    except Exception as e:
+        logger.error(f"Failed to start daemon or load BGP config: {e}")
+        raise
+    
+    step("Verify R1 BGP sessions to R2 and R3 are Established after BGP on R1 is up")
+    test_func = functools.partial(_r1_sessions_up_to_r2_r3)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "R1 BGP sessions to R2/R3 not Established"
 
     def _r3_has_no_stale_prefixes():
-        for pfx in ["1.1.1.2/32", "1.1.1.3/32", "1.1.1.4/32"]:
+        for pfx in ["10.1.1.2/32", "10.1.1.3/32", "10.1.1.4/32"]:
             output = json.loads(r3.vtysh_cmd(f"show bgp ipv4 unicast {pfx} json"))
             # No 'stale': True flag should exist in active path anymore
             if any(p.get("stale") for p in output.get("paths", [])):
@@ -239,8 +265,8 @@ def test_r1_kernel_retains_routes_on_bgpd_kill():
         n2 = json.loads(r1.vtysh_cmd("show bgp ipv4 neighbors 10.0.1.1 json")).get(
             "10.0.1.1", {}
         )
-        n3 = json.loads(r1.vtysh_cmd("show bgp ipv4 neighbors 3.3.3.3 json")).get(
-            "3.3.3.3", {}
+        n3 = json.loads(r1.vtysh_cmd("show bgp ipv4 neighbors 10.3.3.3 json")).get(
+            "10.3.3.3", {}
         )
         if n2.get("bgpState") != "Established" or n3.get("bgpState") != "Established":
             return {"r2": n2.get("bgpState"), "r3": n3.get("bgpState")}
@@ -248,7 +274,7 @@ def test_r1_kernel_retains_routes_on_bgpd_kill():
 
     def _r1_kernel_has_routes():
         # List of prefixes from r3 
-        loopbacks = ["3.3.3.4", "3.3.3.5", "3.3.3.6"]
+        loopbacks = ["10.3.3.4", "10.3.3.5", "10.3.3.6"]
         for lo in loopbacks:
             out = json.loads(
                 r1.cmd(f"ip -j route show {lo}/32 proto bgp dev r1-eth0")
@@ -283,7 +309,26 @@ def test_r1_kernel_retains_routes_on_bgpd_kill():
     assert result is None, "r1 kernel did not retain BGP routes after bgpd kill"
 
     step("Start bgpd on r1 and re-verify neighbors")
-    start_router_daemons(tgen, "r1", ["bgpd"])  # start only bgpd
+
+    # Get config file path and router object
+    source_config = os.path.join(CWD, "r1/frr.conf")
+    router_r1 = tgen.gears["r1"]
+    # Restart BGP daemon and load configuration using load_config
+    logger.info("Starting BGP daemon on r1...")
+    try:
+        start_router_daemons(tgen, "r1", ["bgpd"])
+        logger.info("BGP daemon start command completed")
+
+        # Apply BGP configuration using vtysh -f
+        logger.info(f"Applying BGP config from: {source_config}")
+        config_result = router_r1.cmd(f"vtysh -f {source_config}")
+        logger.info("BGP configuration applied successfully")
+
+    except Exception as e:
+        logger.error(f"Failed to start daemon or load BGP config: {e}")
+        raise
+
+    step("Verify R1 BGP sessions to R2 and R3 are Established after BGP on R1 is up")
     _, result = topotest.run_and_expect(_r1_neighbors_up, None, count=60, wait=0.5)
     assert result is None, "r1 neighbors not Established after bgpd restart"
 

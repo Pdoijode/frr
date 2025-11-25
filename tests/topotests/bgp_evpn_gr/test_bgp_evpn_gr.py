@@ -64,8 +64,8 @@ def setup_module(mod):
     for name, suf in pe_suffix.items():
         pe = tgen.net[name]
         vtep_ip = f"10.100.0.{suf}"
-        bridge_ip = f"50.0.1.{suf}/24"
-        bridge_ipv6 = f"50:0:1::{suf}/48"
+		bridge_ip = f"192.168.50.{suf}/24"
+		bridge_ipv6 = f"fd50:0:1::{suf}/48"
         pe.cmd_raises("ip link add vrf-blue type vrf table 10")
         pe.cmd_raises("ip link set dev vrf-blue up")
         pe.cmd_raises(f"ip link add vxlan100 type vxlan id 100 dstport 4789 local {vtep_ip}")
@@ -88,9 +88,8 @@ def setup_module(mod):
         pe.cmd_raises("sysctl -w net.ipv6.conf.all.forwarding=1")
 
     # Load FRR configuration and start routers
-    for name, router in tgen.routers().items():
-        router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, f"{name}/zebra.conf"))
-        router.load_config(TopoRouter.RD_BGP, os.path.join(CWD, f"{name}/bgpd.conf"))
+	for name, router in tgen.routers().items():
+		router.load_frr_config(os.path.join(CWD, f"{name}/frr.conf"))
 
     tgen.start_router()
 
@@ -450,12 +449,12 @@ def test_bgp_evpn_gr_stale_and_recovery():
 
     # Kernel VRF routes imported (type-5): verify PE2 has host1, PE1 has host2
     logger.info("STEP 5: Verify type-5 routes are installed into kernel VRF on both PEs")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe2, "vrf-blue", ["100.0.0.21"])
+	test_func = functools.partial(_vrf_has_kernel_routes, pe2, "vrf-blue", ["192.168.100.21"])
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
-    assert result, "Type-5 prefix 100.0.0.21/32 not installed in PE2 kernel VRF vrf-blue"
-    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["100.0.0.22"])
+	assert result, "Type-5 prefix 192.168.100.21/32 not installed in PE2 kernel VRF vrf-blue"
+	test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["192.168.100.22"])
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
-    assert result, "Type-5 prefix 100.0.0.22/32 not installed in PE1 kernel VRF vrf-blue"
+	assert result, "Type-5 prefix 192.168.100.22/32 not installed in PE1 kernel VRF vrf-blue"
 
     # Ensure type-2 routes exist on both PEs
     logger.info("STEP 6: Verify remote EVPN type-2 routes exist on both PEs")
@@ -522,7 +521,7 @@ def test_bgp_evpn_gr_stale_and_recovery():
 
     # Verify PE1 kernel still has routes learned from PE2 in vrf-blue (type-5 retained)
     logger.info("STEP 12: Verify PE1 kernel retains type-5 routes from PE2 during GR")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["100.0.0.22"])
+	test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["192.168.100.22"])
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "PE1 kernel VRF routes learned from PE2 disappeared during GR"
 
@@ -540,6 +539,8 @@ def test_bgp_evpn_gr_stale_and_recovery():
     # Bring bgpd back on PE2
     logger.info("STEP 14: Restart bgpd on PE2 to recover session")
     start_router_daemons(tgen, "PE2", ["bgpd"])
+	# Ensure unified config is re-applied after bgpd start from test directory
+	pe2.cmd(f"vtysh -f {os.path.join(CWD, 'PE2', 'frr.conf')}")
 
     # Wait for EVPN session to establish
     logger.info("STEP 15: Wait for EVPN session to establish between PE1 and PE2")
@@ -572,7 +573,7 @@ def test_bgp_evpn_gr_stale_and_recovery():
 
     # After bgpd recovery on PE2, verify PE1 kernel still has routes learned from PE2
     logger.info("STEP 18: Verify PE1 kernel still has routes from PE2 after recovery")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["100.0.0.22"])
+	test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["192.168.100.22"])
     result, _ = topotest.run_and_expect(test_func, True, count=120, wait=2)
     assert result, "PE1 kernel VRF routes learned from PE2 disappeared after recovery"
 
@@ -666,6 +667,9 @@ def test_bgp_evpn_gr_stale_cleanup_on_timeout():
     # Restore bgpd on PE2 for subsequent tests
     logger.info("STEP 10: Restart bgpd on PE2 for subsequent tests")
     start_router_daemons(tgen, "PE2", ["bgpd"])
+	# Ensure unified config is re-applied after bgpd start from test directory
+	pe2 = tgen.gears["PE2"]
+	pe2.cmd(f"vtysh -f {os.path.join(CWD, 'PE2', 'frr.conf')}")
 
 """
 Commenting this test out until MR 12975 is merged
@@ -725,6 +729,8 @@ def test_bgp_evpn_gr_select_deferral_cleanup_on_pe2():
     # Start bgpd on PE2; session will remain down due to neighbor shutdown on PE1
     logger.info("STEP 8: Start bgpd on PE2 (session should stay down due to neighbor shutdown)")
     start_router_daemons(tgen, "PE2", ["bgpd", "zebra"])
+	# Ensure unified config is re-applied after bgpd start from test directory
+	pe2.cmd(f"vtysh -f {os.path.join(CWD, 'PE2', 'frr.conf')}")
 
     # Wait beyond select deferral timer (default 120s) so PE2 purges stale paths
     logger.info("STEP 9: Wait beyond select-deferral (sleep 150s) so PE2 purges stale paths")

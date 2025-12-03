@@ -64,8 +64,8 @@ def setup_module(mod):
     for name, suf in pe_suffix.items():
         pe = tgen.net[name]
         vtep_ip = f"10.100.0.{suf}"
-        bridge_ip = f"50.0.1.{suf}/24"
-        bridge_ipv6 = f"50:0:1::{suf}/48"
+        bridge_ip = f"192.168.50.{suf}/24"
+        bridge_ipv6 = f"fd00:50:1::{suf}/48"
         pe.cmd_raises("ip link add vrf-blue type vrf table 10")
         pe.cmd_raises("ip link set dev vrf-blue up")
         pe.cmd_raises(f"ip link add vxlan100 type vxlan id 100 dstport 4789 local {vtep_ip}")
@@ -450,12 +450,12 @@ def test_bgp_evpn_gr_stale_and_recovery():
 
     # Kernel VRF routes imported (type-5): verify PE2 has host1, PE1 has host2
     logger.info("STEP 5: Verify type-5 routes are installed into kernel VRF on both PEs")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe2, "vrf-blue", ["100.0.0.21"])
+    test_func = functools.partial(_vrf_has_kernel_routes, pe2, "vrf-blue", ["172.31.0.21"])
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
-    assert result, "Type-5 prefix 100.0.0.21/32 not installed in PE2 kernel VRF vrf-blue"
-    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["100.0.0.22"])
+    assert result, "Type-5 prefix 172.31.0.21/32 not installed in PE2 kernel VRF vrf-blue"
+    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"])
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
-    assert result, "Type-5 prefix 100.0.0.22/32 not installed in PE1 kernel VRF vrf-blue"
+    assert result, "Type-5 prefix 172.31.0.22/32 not installed in PE1 kernel VRF vrf-blue"
 
     # Ensure type-2 routes exist on both PEs
     logger.info("STEP 6: Verify remote EVPN type-2 routes exist on both PEs")
@@ -523,7 +523,7 @@ def test_bgp_evpn_gr_stale_and_recovery():
 
     # Verify PE1 kernel still has routes learned from PE2 in vrf-blue (type-5 retained)
     logger.info("STEP 12: Verify PE1 kernel retains type-5 routes from PE2 during GR")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["100.0.0.22"])
+    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"])
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "PE1 kernel VRF routes learned from PE2 disappeared during GR"
 
@@ -573,7 +573,7 @@ def test_bgp_evpn_gr_stale_and_recovery():
 
     # After bgpd recovery on PE2, verify PE1 kernel still has routes learned from PE2
     logger.info("STEP 18: Verify PE1 kernel still has routes from PE2 after recovery")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["100.0.0.22"])
+    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"])
     result, _ = topotest.run_and_expect(test_func, True, count=120, wait=2)
     assert result, "PE1 kernel VRF routes learned from PE2 disappeared after recovery"
 
@@ -636,7 +636,7 @@ def test_bgp_evpn_gr_stale_cleanup_on_timeout():
     assert result, "No remote EVPN type-5 routes on PE1"
 
     logger.info("STEP 4: Verify kernel VRF has type-5 route on PE1 prior to GR")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["100.0.0.22"])
+    test_func = functools.partial(_vrf_has_kernel_routes, pe1, "vrf-blue", ["172.31.0.22"])
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "Missing kernel VRF routes on PE1 prior to GR"
 
@@ -655,7 +655,7 @@ def test_bgp_evpn_gr_stale_cleanup_on_timeout():
 
     # Expect kernel VRF routes and FDB extern entry to be cleaned from PE1
     logger.info("STEP 8: Verify kernel VRF routes learned from PE2 are cleaned on PE1")
-    test_func = functools.partial(_vrf_routes_absent, pe1, "vrf-blue", ["100.0.0.22"])
+    test_func = functools.partial(_vrf_routes_absent, pe1, "vrf-blue", ["172.31.0.22"])
     result, _ = topotest.run_and_expect(test_func, True, count=160, wait=1)
     assert result, "VRF kernel routes on PE1 not cleaned after GR stalepath-time expiry"
 
@@ -691,7 +691,7 @@ def test_bgp_evpn_gr_select_deferral_cleanup_on_pe2():
 
     # PE1-originated type-5 network should be in PE2 kernel VRF
     logger.info("STEP 4: Verify kernel VRF has type-5 route on PE2 prior to GR")
-    test_func = functools.partial(_vrf_has_kernel_routes, pe2, "vrf-blue", ["100.0.0.21"])
+    test_func = functools.partial(_vrf_has_kernel_routes, pe2, "vrf-blue", ["172.31.0.21"])
     result, _ = topotest.run_and_expect(test_func, True, count=60, wait=2)
     assert result, "Missing kernel VRF routes on PE2 prior to GR/select-deferral"
 
@@ -733,7 +733,7 @@ def test_bgp_evpn_gr_select_deferral_cleanup_on_pe2():
 
     # Verify PE2 kernel cleaned routes learned from PE1
     logger.info("STEP 10: Verify kernel VRF routes learned from PE1 are cleaned on PE2")
-    test_func = functools.partial(_vrf_routes_absent, pe2, "vrf-blue", ["100.0.0.21"])
+    test_func = functools.partial(_vrf_routes_absent, pe2, "vrf-blue", ["172.31.0.21"])
     result, _ = topotest.run_and_expect(test_func, True, count=160, wait=1)
     assert result, "VRF kernel routes on PE2 not cleaned after select-deferral expiry"
 
